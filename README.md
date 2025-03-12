@@ -9,4 +9,4 @@ This project implements a machine learning classifier that labels various strawb
 Data: Collected from images from kaggle and some custom taken pictures
 
 ### Status
-This Project is in process and I am currently preprocessing the data
+This Project is in process and iteration mode. Initial first pass with an accuracy of 90% has been achieved by using SVM Model
