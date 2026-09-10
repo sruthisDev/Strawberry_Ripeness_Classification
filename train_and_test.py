@@ -1,23 +1,12 @@
 import pandas as pd
 from sklearn.svm import SVC
 from sklearn.preprocessing import MinMaxScaler
-from sklearn.model_selection import train_test_split
 import joblib
 
-RANDOM_STATE = 42
+from model_utils import load_train_test_split
 
-# Step 1: Load the dataset
-data = pd.read_csv("fruit_features.csv")
-
-# Step 2: Separate filenames, features, and labels
-filenames = data["Filename"]
-X = data.drop(columns=["Filename", "Label"])
-y = data["Label"]
-
-# Step 3: Randomized, stratified train/test split
-X_train, X_test, y_train, y_test, train_filenames, test_filenames = train_test_split(
-    X, y, filenames, test_size=0.15, stratify=y, random_state=RANDOM_STATE
-)
+# Step 1-3: Load the dataset and split into a randomized, stratified train/test set
+X_train, X_test, y_train, y_test, train_filenames, test_filenames = load_train_test_split()
 
 # Step 4: Normalize the feature data
 scaler = MinMaxScaler()
@@ -36,6 +25,8 @@ print("Model trained and saved successfully!")
 
 # Step 7: Predict on the test set
 y_pred = svm_model.predict(X_test_normalized)
+accuracy = (y_pred == y_test.values).mean()
+print(f"SVM test accuracy: {accuracy:.2%}")
 
 # Step 8: Display results
 results = pd.DataFrame({"Filename": test_filenames.values, "Actual": y_test.values, "Predicted": y_pred})

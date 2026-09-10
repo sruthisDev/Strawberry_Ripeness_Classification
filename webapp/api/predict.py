@@ -10,8 +10,21 @@ WEBAPP_DIR = os.path.dirname(os.path.dirname(__file__))
 app = Flask(__name__)
 
 MODEL_DIR = os.path.join(os.path.dirname(__file__), "model")
-svm_model = joblib.load(os.path.join(MODEL_DIR, "svm_strawberry_model.pkl"))
-scaler = joblib.load(os.path.join(MODEL_DIR, "scaler.pkl"))
+
+MODELS = {
+    "svm": {
+        "model": joblib.load(os.path.join(MODEL_DIR, "svm_strawberry_model.pkl")),
+        "scaler": joblib.load(os.path.join(MODEL_DIR, "scaler.pkl")),
+    },
+    "knn": {
+        "model": joblib.load(os.path.join(MODEL_DIR, "knn_strawberry_model.pkl")),
+        "scaler": joblib.load(os.path.join(MODEL_DIR, "knn_scaler.pkl")),
+    },
+    "ensemble": {
+        "model": joblib.load(os.path.join(MODEL_DIR, "ensemble_strawberry_model.pkl")),
+        "scaler": joblib.load(os.path.join(MODEL_DIR, "ensemble_scaler.pkl")),
+    },
+}
 
 LABELS = {0: "unripe", 1: "ripe"}
 
@@ -76,6 +89,10 @@ def predict():
     if "image" not in request.files:
         return jsonify({"error": "No 'image' file in request"}), 400
 
+    model_name = request.form.get("model", "svm")
+    if model_name not in MODELS:
+        return jsonify({"error": f"Unknown model '{model_name}'. Choose from: {', '.join(MODELS)}"}), 400
+
     file = request.files["image"]
     file_bytes = np.frombuffer(file.read(), np.uint8)
     image = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
@@ -84,15 +101,19 @@ def predict():
         return jsonify({"error": "Could not decode image"}), 400
 
     features, readout = extract_features(image)
+
+    model = MODELS[model_name]["model"]
+    scaler = MODELS[model_name]["scaler"]
     features_normalized = scaler.transform(features)
 
-    prediction = svm_model.predict(features_normalized)[0]
-    probabilities = svm_model.predict_proba(features_normalized)[0]
+    prediction = model.predict(features_normalized)[0]
+    probabilities = model.predict_proba(features_normalized)[0]
     confidence = float(probabilities[int(prediction)])
 
     return jsonify({
         "label": LABELS[int(prediction)],
         "confidence": round(confidence, 4),
+        "model": model_name,
         "features": readout,
     })
 
