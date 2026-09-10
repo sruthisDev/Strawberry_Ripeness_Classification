@@ -118,8 +118,9 @@
   }
   .credit-text { font-size: 0.72rem; line-height: 1.4; color: var(--muted); }
   .credit-text strong { color: var(--ink); font-weight: 600; }
-  @media (max-width: 720px) {
-    .credit { position: static; width: fit-content; margin: 2.5rem auto 0; }
+  @media (max-width: 480px) {
+    .credit-text { display: none; }
+    .credit { padding: 0.5rem; left: 1rem; bottom: 1rem; }
   }
 
   h1 {
@@ -465,7 +466,7 @@
       </svg>
       <p class="dropzone-text">Drop a photo here or click to browse</p>
       <p class="dropzone-hint">JPG or PNG · works best with a clear, close-up photo of a single strawberry</p>
-      <input type="file" id="fileInput" accept="image/*">
+      <input type="file" id="fileInput" accept="image/jpeg,image/png">
     </div>
 
     <div class="samples" id="samples">
@@ -530,6 +531,7 @@
   <div class="tags">
     <span class="tag">SVM · KNN · Ensemble</span>
     <span class="tag">OpenCV + scikit-image</span>
+    <span class="tag">ImageNet-gated</span>
   </div>
 </main>
 
@@ -583,8 +585,15 @@
 
   let currentFile = null;
 
+  const ALLOWED_TYPES = ['image/jpeg', 'image/png'];
+
   function selectFile(file) {
-    if (!file || !file.type.startsWith('image/')) return;
+    if (!file) return;
+    if (!ALLOWED_TYPES.includes(file.type)) {
+      errorText.textContent = 'Error: Only JPG or PNG photos are supported.';
+      errorText.style.display = 'block';
+      return;
+    }
     currentFile = file;
     previewImg.src = URL.createObjectURL(file);
     fileName.textContent = file.name;

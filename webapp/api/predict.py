@@ -119,6 +119,9 @@ def predict():
         return jsonify({"error": f"Unknown model '{model_name}'. Choose from: {', '.join(MODELS)}"}), 400
 
     file = request.files["image"]
+    if file.mimetype not in ("image/jpeg", "image/png"):
+        return jsonify({"error": "Only JPG or PNG photos are supported."}), 400
+
     file_bytes = np.frombuffer(file.read(), np.uint8)
     image = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
 
