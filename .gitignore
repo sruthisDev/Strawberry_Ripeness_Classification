@@ -4,3 +4,9 @@ __pycache__/
 *.pyc
 /scaler.pkl
 /svm_strawberry_model.pkl
+/knn_scaler.pkl
+/knn_strawberry_model.pkl
+/ensemble_scaler.pkl
+/ensemble_strawberry_model.pkl
+/knn_predictions.csv
+/ensemble_predictions.csv
