@@ -167,14 +167,59 @@
   .dropzone-hint { font-size: 0.8rem; color: var(--muted); margin: 0.25rem 0 0; }
   #fileInput { display: none; }
 
+  .samples { margin-top: 1rem; }
+  .samples-label {
+    font-size: 0.78rem;
+    color: var(--muted);
+    margin: 0 0 0.5rem;
+  }
+  .sample-row { display: flex; gap: 0.6rem; }
+  .sample-thumb {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.35rem;
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    font-family: inherit;
+    color: var(--muted);
+    font-size: 0.72rem;
+  }
+  .sample-thumb img {
+    width: 52px; height: 52px; object-fit: cover;
+    border-radius: 8px;
+    border: 1.5px solid var(--border);
+    transition: border-color 0.15s ease, transform 0.15s ease;
+  }
+  .sample-thumb:hover img, .sample-thumb:focus-visible img {
+    border-color: var(--accent);
+    transform: translateY(-2px);
+  }
+
   .selected {
     display: none;
+    flex-direction: column;
+    gap: 0.7rem;
+  }
+  .selected-preview {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    max-height: 320px;
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    background: var(--surface-alt);
+  }
+  .selected-preview img {
+    width: 100%; height: 100%; object-fit: contain; display: block;
+  }
+  .selected-row {
+    display: flex;
     align-items: center;
     gap: 0.9rem;
-  }
-  .selected img {
-    width: 64px; height: 64px; object-fit: cover;
-    border-radius: 8px; border: 1px solid var(--border);
   }
   .selected-meta { flex: 1; min-width: 0; }
   .selected-name {
@@ -185,6 +230,57 @@
     background: none; border: none; padding: 0; margin-top: 0.15rem;
     font-family: inherit; font-size: 0.8rem; color: var(--accent);
     cursor: pointer; text-decoration: underline;
+  }
+
+  .scan-overlay {
+    position: absolute;
+    inset: 0;
+    display: none;
+    overflow: hidden;
+  }
+  .scan-overlay.active { display: block; }
+  .scan-tint {
+    position: absolute; inset: 0;
+    background: rgba(20, 16, 10, 0.28);
+  }
+  .scan-line {
+    position: absolute;
+    left: 0; right: 0;
+    top: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--accent) 20%, var(--accent) 80%, transparent);
+    box-shadow: 0 0 14px 3px var(--accent);
+    animation: scanSweep 1.6s ease-in-out infinite;
+  }
+  .scan-strip {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  .scan-strip span {
+    display: block;
+    width: 100%;
+    flex: 1;
+    opacity: 0;
+    transition: opacity 0.25s ease;
+  }
+  .scan-strip span.revealed { opacity: 0.55; }
+  @keyframes scanSweep {
+    0%, 100% { top: 0%; }
+    50% { top: calc(100% - 2px); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .scan-line { animation: none; top: 50%; }
+  }
+
+  .flying-sample {
+    position: fixed;
+    border-radius: 8px;
+    object-fit: cover;
+    pointer-events: none;
+    z-index: 50;
+    transition: transform 0.45s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.45s ease;
   }
 
   button.primary {
@@ -368,15 +464,38 @@
         <circle cx="12" cy="17.4" r="0.55" fill="currentColor" stroke="none"/>
       </svg>
       <p class="dropzone-text">Drop a photo here or click to browse</p>
-      <p class="dropzone-hint">JPG or PNG</p>
+      <p class="dropzone-hint">JPG or PNG · works best with a clear, close-up photo of a single strawberry</p>
       <input type="file" id="fileInput" accept="image/*">
     </div>
 
+    <div class="samples" id="samples">
+      <p class="samples-label">Don't have a strawberry handy? Try a sample</p>
+      <div class="sample-row">
+        <button type="button" class="sample-thumb" id="sampleRipe" data-src="/samples/ripe.jpg" data-name="sample-ripe.jpg">
+          <img src="/samples/ripe.jpg" alt="Sample ripe strawberry">
+          Ripe
+        </button>
+        <button type="button" class="sample-thumb" id="sampleUnripe" data-src="/samples/unripe.jpg" data-name="sample-unripe.jpg">
+          <img src="/samples/unripe.jpg" alt="Sample unripe strawberry">
+          Unripe
+        </button>
+      </div>
+    </div>
+
     <div class="selected" id="selected">
-      <img id="previewImg" alt="Selected strawberry">
-      <div class="selected-meta">
-        <div class="selected-name" id="fileName"></div>
-        <button class="change-link" id="changeButton" type="button">Choose a different photo</button>
+      <div class="selected-preview">
+        <img id="previewImg" alt="Selected strawberry">
+        <div class="scan-overlay" id="scanOverlay">
+          <div class="scan-strip" id="scanStrip"></div>
+          <div class="scan-tint"></div>
+          <div class="scan-line"></div>
+        </div>
+      </div>
+      <div class="selected-row">
+        <div class="selected-meta">
+          <div class="selected-name" id="fileName"></div>
+          <button class="change-link" id="changeButton" type="button">Choose a different photo</button>
+        </div>
       </div>
     </div>
 
@@ -441,6 +560,7 @@
   })();
 
   const dropzone = document.getElementById('dropzone');
+  const samples = document.getElementById('samples');
   const fileInput = document.getElementById('fileInput');
   const selected = document.getElementById('selected');
   const previewImg = document.getElementById('previewImg');
@@ -457,6 +577,9 @@
   const statColor = document.getElementById('statColor');
   const statTexture = document.getElementById('statTexture');
   const statShape = document.getElementById('statShape');
+  const scanOverlay = document.getElementById('scanOverlay');
+  const scanStrip = document.getElementById('scanStrip');
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   let currentFile = null;
 
@@ -466,10 +589,97 @@
     previewImg.src = URL.createObjectURL(file);
     fileName.textContent = file.name;
     dropzone.style.display = 'none';
+    samples.style.display = 'none';
     selected.style.display = 'flex';
     analyzeButton.disabled = false;
     errorText.style.display = 'none';
     resultSection.style.display = 'none';
+  }
+
+  function flyToDropzone(thumbImg, onDone) {
+    if (reduceMotion) { onDone(); return; }
+    const thumbRect = thumbImg.getBoundingClientRect();
+    const dropRect = dropzone.getBoundingClientRect();
+    const flying = thumbImg.cloneNode();
+    flying.className = 'flying-sample';
+    flying.style.left = thumbRect.left + 'px';
+    flying.style.top = thumbRect.top + 'px';
+    flying.style.width = thumbRect.width + 'px';
+    flying.style.height = thumbRect.height + 'px';
+    flying.style.opacity = '1';
+    flying.style.transform = 'translate(0, 0) scale(1)';
+    document.body.appendChild(flying);
+
+    const dx = (dropRect.left + dropRect.width / 2) - (thumbRect.left + thumbRect.width / 2);
+    const dy = (dropRect.top + dropRect.height / 2) - (thumbRect.top + thumbRect.height / 2);
+
+    // Force a layout flush so the browser commits the starting position/scale
+    // before the transform changes below - otherwise both styles land in the
+    // same paint and the transition never plays.
+    void flying.getBoundingClientRect();
+
+    requestAnimationFrame(() => {
+      flying.style.transform = `translate(${dx}px, ${dy}px) scale(2.2)`;
+      flying.style.opacity = '0';
+    });
+
+    setTimeout(() => {
+      flying.remove();
+      onDone();
+    }, 450);
+  }
+
+  function trySample(button) {
+    const url = button.dataset.src;
+    const name = button.dataset.name;
+    const thumbImg = button.querySelector('img');
+    flyToDropzone(thumbImg, async () => {
+      const blob = await fetch(url).then((r) => r.blob());
+      selectFile(new File([blob], name, { type: blob.type || 'image/jpeg' }));
+    });
+  }
+
+  document.getElementById('sampleRipe').addEventListener('click', (e) => trySample(e.currentTarget));
+  document.getElementById('sampleUnripe').addEventListener('click', (e) => trySample(e.currentTarget));
+
+  function buildColorStrip() {
+    scanStrip.innerHTML = '';
+    const bands = 24;
+    try {
+      const canvas = document.createElement('canvas');
+      canvas.width = 32;
+      canvas.height = bands;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(previewImg, 0, 0, 32, bands);
+      const data = ctx.getImageData(0, 0, 32, bands).data;
+      for (let i = 0; i < bands; i++) {
+        let r = 0, g = 0, b = 0;
+        for (let x = 0; x < 32; x++) {
+          const idx = (i * 32 + x) * 4;
+          r += data[idx]; g += data[idx + 1]; b += data[idx + 2];
+        }
+        const span = document.createElement('span');
+        span.style.background = `rgb(${Math.round(r / 32)}, ${Math.round(g / 32)}, ${Math.round(b / 32)})`;
+        scanStrip.appendChild(span);
+      }
+    } catch (e) {
+      // Canvas sampling is a nice-to-have; skip silently if it fails.
+    }
+  }
+
+  function startScan() {
+    buildColorStrip();
+    scanOverlay.classList.add('active');
+    if (reduceMotion) return;
+    const spans = scanStrip.querySelectorAll('span');
+    spans.forEach((span, i) => {
+      setTimeout(() => span.classList.add('revealed'), i * (1400 / spans.length));
+    });
+  }
+
+  function stopScan() {
+    scanOverlay.classList.remove('active');
+    scanStrip.querySelectorAll('span').forEach((s) => s.classList.remove('revealed'));
   }
 
   dropzone.addEventListener('click', () => fileInput.click());
@@ -491,6 +701,7 @@
     fileInput.value = '';
     selected.style.display = 'none';
     dropzone.style.display = 'block';
+    samples.style.display = 'block';
     analyzeButton.disabled = true;
     resultSection.style.display = 'none';
     errorText.style.display = 'none';
@@ -503,6 +714,7 @@
     analyzeButton.textContent = 'Analyzing…';
     errorText.style.display = 'none';
     resultSection.style.display = 'none';
+    startScan();
 
     const selectedModel = document.querySelector('input[name="model"]:checked').value;
 
@@ -510,8 +722,13 @@
     formData.append('image', currentFile);
     formData.append('model', selectedModel);
 
+    const MIN_SCAN_MS = 1500;
+
     try {
-      const response = await fetch('/api/predict', { method: 'POST', body: formData });
+      const [response] = await Promise.all([
+        fetch('/api/predict', { method: 'POST', body: formData }),
+        new Promise((resolve) => setTimeout(resolve, MIN_SCAN_MS)),
+      ]);
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Something went wrong');
 
@@ -538,6 +755,7 @@
       errorText.textContent = 'Error: ' + err.message;
       errorText.style.display = 'block';
     } finally {
+      stopScan();
       analyzeButton.disabled = false;
       analyzeButton.textContent = 'Analyze';
     }
