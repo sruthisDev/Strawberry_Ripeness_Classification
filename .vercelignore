@@ -1,5 +1,5 @@
-fruit_hsv_features.csv
-strawberry_predictions.csv
+Data/
+*.csv
 __pycache__/
 *.pyc
 /scaler.pkl

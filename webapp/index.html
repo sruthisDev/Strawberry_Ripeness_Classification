@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Strawberry Ripeness Classifier</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,wght@0,500;0,600;1,500;1,600&family=Work+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f6f5ee;
+    --surface: #ffffff;
+    --surface-alt: #faf9f2;
+    --ink: #211d16;
+    --muted: #6e6a5d;
+    --border: #e4e1d3;
+    --accent: #c22b3a;
+    --accent-soft: rgba(194, 43, 58, 0.08);
+    --accent-ink: #ffffff;
+    --unripe: #6f8c45;
+    --unripe-soft: rgba(111, 140, 69, 0.12);
+    --shadow: rgba(33, 29, 22, 0.06);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #17140f;
+      --surface: #201c15;
+      --surface-alt: #262119;
+      --ink: #f3efe6;
+      --muted: #b3ac99;
+      --border: #35301f;
+      --accent: #ff6b5b;
+      --accent-soft: rgba(255, 107, 91, 0.12);
+      --accent-ink: #1a0f0c;
+      --unripe: #9fcb6f;
+      --unripe-soft: rgba(159, 203, 111, 0.14);
+      --shadow: rgba(0, 0, 0, 0.35);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #17140f;
+    --surface: #201c15;
+    --surface-alt: #262119;
+    --ink: #f3efe6;
+    --muted: #b3ac99;
+    --border: #35301f;
+    --accent: #ff6b5b;
+    --accent-soft: rgba(255, 107, 91, 0.12);
+    --accent-ink: #1a0f0c;
+    --unripe: #9fcb6f;
+    --unripe-soft: rgba(159, 203, 111, 0.14);
+    --shadow: rgba(0, 0, 0, 0.35);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    position: relative;
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: "Work Sans", system-ui, -apple-system, sans-serif;
+    display: flex;
+    justify-content: center;
+    padding: 4rem 1.25rem;
+    min-height: 100vh;
+  }
+  main { width: 100%; max-width: 560px; }
+
+  .bg-decor {
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    overflow: hidden;
+    background-image:
+      linear-gradient(to right, var(--border) 1px, transparent 1px),
+      linear-gradient(to bottom, var(--border) 1px, transparent 1px);
+    background-size: 42px 42px;
+  }
+  .bg-decor .berry {
+    position: absolute;
+    color: var(--accent);
+    animation: berryFloat linear infinite;
+  }
+  .bg-decor .berry svg { display: block; width: 100%; height: 100%; }
+  @keyframes berryFloat {
+    0%, 100% { transform: translateY(0) rotate(var(--rot, 0deg)); }
+    50% { transform: translateY(-16px) rotate(var(--rot, 0deg)); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .bg-decor .berry { animation: none; }
+  }
+
+  .credit {
+    position: fixed;
+    left: 1.5rem;
+    bottom: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 0.4rem 1rem 0.4rem 0.4rem;
+    text-decoration: none;
+    box-shadow: 0 6px 18px var(--shadow);
+    z-index: 5;
+    transition: transform 0.15s ease;
+  }
+  .credit:hover { transform: translateY(-2px); }
+  .credit-avatar {
+    width: 30px; height: 30px; border-radius: 50%;
+    background: var(--accent-soft); color: var(--accent);
+    display: flex; align-items: center; justify-content: center;
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 0.7rem; font-weight: 600;
+    flex-shrink: 0;
+  }
+  .credit-text { font-size: 0.72rem; line-height: 1.4; color: var(--muted); }
+  .credit-text strong { color: var(--ink); font-weight: 600; }
+  @media (max-width: 720px) {
+    .credit { position: static; width: fit-content; margin: 2.5rem auto 0; }
+  }
+
+  h1 {
+    font-family: "Newsreader", Georgia, serif;
+    font-style: italic;
+    font-weight: 600;
+    font-size: 2.5rem;
+    line-height: 1.1;
+    margin: 0 0 0.6rem;
+    text-wrap: balance;
+  }
+  .lede {
+    color: var(--muted);
+    font-size: 0.95rem;
+    line-height: 1.5;
+    max-width: 46ch;
+    margin: 0 0 2rem;
+  }
+
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 1.75rem;
+    box-shadow: 0 8px 24px var(--shadow);
+  }
+
+  .dropzone {
+    border: 1.5px dashed var(--border);
+    border-radius: 12px;
+    padding: 2.25rem 1.5rem;
+    text-align: center;
+    cursor: pointer;
+    background-image: radial-gradient(var(--border) 1px, transparent 1px);
+    background-size: 14px 14px;
+    background-position: center;
+    transition: border-color 0.15s ease, background-color 0.15s ease;
+  }
+  .dropzone:hover, .dropzone.drag-over {
+    border-color: var(--accent);
+    background-color: var(--accent-soft);
+  }
+  .dropzone svg { width: 34px; height: 34px; color: var(--accent); margin-bottom: 0.6rem; }
+  .dropzone-text { font-size: 0.95rem; color: var(--ink); margin: 0; }
+  .dropzone-hint { font-size: 0.8rem; color: var(--muted); margin: 0.25rem 0 0; }
+  #fileInput { display: none; }
+
+  .selected {
+    display: none;
+    align-items: center;
+    gap: 0.9rem;
+  }
+  .selected img {
+    width: 64px; height: 64px; object-fit: cover;
+    border-radius: 8px; border: 1px solid var(--border);
+  }
+  .selected-meta { flex: 1; min-width: 0; }
+  .selected-name {
+    font-size: 0.88rem; font-weight: 500;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .change-link {
+    background: none; border: none; padding: 0; margin-top: 0.15rem;
+    font-family: inherit; font-size: 0.8rem; color: var(--accent);
+    cursor: pointer; text-decoration: underline;
+  }
+
+  button.primary {
+    width: 100%;
+    margin-top: 1.25rem;
+    background: var(--accent);
+    color: var(--accent-ink);
+    border: none;
+    border-radius: 8px;
+    padding: 0.75rem 1rem;
+    font-family: inherit;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  button.primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  #resultSection { display: none; margin-top: 1.75rem; }
+
+  .verdict-row {
+    display: flex; align-items: baseline; justify-content: space-between;
+    gap: 1rem; margin-bottom: 0.7rem;
+  }
+  .verdict-label {
+    font-family: "Newsreader", Georgia, serif;
+    font-style: italic; font-weight: 600;
+    font-size: 1.6rem;
+  }
+  .verdict-label.ripe { color: var(--accent); }
+  .verdict-label.unripe { color: var(--unripe); }
+  .verdict-confidence {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-variant-numeric: tabular-nums;
+    font-size: 1.1rem;
+    color: var(--muted);
+  }
+
+  .meter {
+    height: 6px; border-radius: 999px; background: var(--surface-alt);
+    overflow: hidden; margin-bottom: 1.5rem;
+  }
+  .meter-fill {
+    height: 100%; width: 0%; border-radius: 999px;
+    background: var(--accent);
+    transition: width 0.5s ease;
+  }
+  .meter-fill.unripe { background: var(--unripe); }
+
+  .stat-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.75rem;
+  }
+  .stat {
+    background: var(--surface-alt);
+    border-radius: 10px;
+    padding: 0.75rem 0.6rem;
+  }
+  .stat-label {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 0.4rem;
+    display: flex; align-items: center; gap: 0.4rem;
+  }
+  .swatch {
+    width: 10px; height: 10px; border-radius: 50%;
+    border: 1px solid var(--border); flex-shrink: 0;
+  }
+  .stat-value {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-variant-numeric: tabular-nums;
+    font-size: 0.82rem;
+    line-height: 1.5;
+  }
+
+  #errorText {
+    display: none;
+    margin-top: 1.25rem;
+    font-size: 0.88rem;
+    color: var(--muted);
+  }
+
+  .tags {
+    display: flex; flex-wrap: wrap; gap: 0.5rem;
+    margin-top: 1.75rem;
+  }
+  .tag {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 0.7rem;
+    color: var(--muted);
+    background: var(--surface-alt);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 0.25rem 0.65rem;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .meter-fill { transition: none; }
+  }
+</style>
+</head>
+<body>
+<div class="bg-decor" id="bgDecor" aria-hidden="true"></div>
+
+<a class="credit" href="https://sruthirao.com" target="_blank" rel="noopener">
+  <span class="credit-avatar">SS</span>
+  <span class="credit-text">Built by <strong>Sruthi Satyavarapu</strong><br>sruthirao.com</span>
+</a>
+
+<main>
+  <h1>Strawberry Ripeness Classifier</h1>
+  <p class="lede">HSV color, GLCM texture, and contour-shape features feed an SVM classifier trained on 1000+ strawberry photos. Upload one to see how it reads.</p>
+
+  <div class="panel">
+    <div class="dropzone" id="dropzone" tabindex="0" role="button" aria-label="Upload a strawberry photo">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M12 21.5C7.6 21.5 3.6 16.4 3.6 11.4C3.6 7.1 7.4 4.3 12 5.1C16.6 4.3 20.4 7.1 20.4 11.4C20.4 16.4 16.4 21.5 12 21.5Z"/>
+        <path d="M8.6 5.3L10.6 2.6L12 4.6L13.4 2.6L15.4 5.3" stroke-width="1.1"/>
+        <circle cx="9.4" cy="13.2" r="0.55" fill="currentColor" stroke="none"/>
+        <circle cx="14.6" cy="12.6" r="0.55" fill="currentColor" stroke="none"/>
+        <circle cx="12" cy="17.4" r="0.55" fill="currentColor" stroke="none"/>
+      </svg>
+      <p class="dropzone-text">Drop a photo here or click to browse</p>
+      <p class="dropzone-hint">JPG or PNG</p>
+      <input type="file" id="fileInput" accept="image/*">
+    </div>
+
+    <div class="selected" id="selected">
+      <img id="previewImg" alt="Selected strawberry">
+      <div class="selected-meta">
+        <div class="selected-name" id="fileName"></div>
+        <button class="change-link" id="changeButton" type="button">Choose a different photo</button>
+      </div>
+    </div>
+
+    <button class="primary" id="analyzeButton" disabled>Analyze</button>
+
+    <p id="errorText"></p>
+
+    <div id="resultSection">
+      <div class="verdict-row">
+        <span class="verdict-label" id="verdictLabel"></span>
+        <span class="verdict-confidence" id="verdictConfidence"></span>
+      </div>
+      <div class="meter"><div class="meter-fill" id="meterFill"></div></div>
+      <div class="stat-grid">
+        <div class="stat">
+          <div class="stat-label"><span class="swatch" id="colorSwatch"></span>Color</div>
+          <div class="stat-value" id="statColor"></div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">Texture</div>
+          <div class="stat-value" id="statTexture"></div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">Shape</div>
+          <div class="stat-value" id="statShape"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="tags">
+    <span class="tag">SVM · RBF kernel</span>
+    <span class="tag">OpenCV + scikit-image</span>
+  </div>
+</main>
+
+<script>
+  (function () {
+    const container = document.getElementById('bgDecor');
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const berrySvg = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 21.5C7.6 21.5 3.6 16.4 3.6 11.4C3.6 7.1 7.4 4.3 12 5.1C16.6 4.3 20.4 7.1 20.4 11.4C20.4 16.4 16.4 21.5 12 21.5Z"/><path d="M8.6 5.3L10.6 2.6L12 4.6L13.4 2.6L15.4 5.3L14.2 6.3H9.8Z"/></svg>';
+    const count = 16;
+    for (let i = 0; i < count; i++) {
+      const el = document.createElement('div');
+      el.className = 'berry';
+      el.innerHTML = berrySvg;
+      const size = 14 + Math.random() * 22;
+      el.style.width = size + 'px';
+      el.style.height = size + 'px';
+      el.style.left = (Math.random() * 100) + '%';
+      el.style.top = (Math.random() * 100) + '%';
+      el.style.opacity = (0.07 + Math.random() * 0.1).toFixed(2);
+      el.style.setProperty('--rot', (Math.random() * 40 - 20).toFixed(1) + 'deg');
+      if (!reduceMotion) {
+        const duration = 5 + Math.random() * 6;
+        el.style.animationDuration = duration + 's';
+        el.style.animationDelay = (-Math.random() * duration) + 's';
+      }
+      container.appendChild(el);
+    }
+  })();
+
+  const dropzone = document.getElementById('dropzone');
+  const fileInput = document.getElementById('fileInput');
+  const selected = document.getElementById('selected');
+  const previewImg = document.getElementById('previewImg');
+  const fileName = document.getElementById('fileName');
+  const changeButton = document.getElementById('changeButton');
+  const analyzeButton = document.getElementById('analyzeButton');
+  const errorText = document.getElementById('errorText');
+  const resultSection = document.getElementById('resultSection');
+  const verdictLabel = document.getElementById('verdictLabel');
+  const verdictConfidence = document.getElementById('verdictConfidence');
+  const meterFill = document.getElementById('meterFill');
+  const colorSwatch = document.getElementById('colorSwatch');
+  const statColor = document.getElementById('statColor');
+  const statTexture = document.getElementById('statTexture');
+  const statShape = document.getElementById('statShape');
+
+  let currentFile = null;
+
+  function selectFile(file) {
+    if (!file || !file.type.startsWith('image/')) return;
+    currentFile = file;
+    previewImg.src = URL.createObjectURL(file);
+    fileName.textContent = file.name;
+    dropzone.style.display = 'none';
+    selected.style.display = 'flex';
+    analyzeButton.disabled = false;
+    errorText.style.display = 'none';
+    resultSection.style.display = 'none';
+  }
+
+  dropzone.addEventListener('click', () => fileInput.click());
+  dropzone.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInput.click(); }
+  });
+  fileInput.addEventListener('change', () => selectFile(fileInput.files[0]));
+
+  ['dragenter', 'dragover'].forEach(evt =>
+    dropzone.addEventListener(evt, (e) => { e.preventDefault(); dropzone.classList.add('drag-over'); })
+  );
+  ['dragleave', 'drop'].forEach(evt =>
+    dropzone.addEventListener(evt, (e) => { e.preventDefault(); dropzone.classList.remove('drag-over'); })
+  );
+  dropzone.addEventListener('drop', (e) => selectFile(e.dataTransfer.files[0]));
+
+  changeButton.addEventListener('click', () => {
+    currentFile = null;
+    fileInput.value = '';
+    selected.style.display = 'none';
+    dropzone.style.display = 'block';
+    analyzeButton.disabled = true;
+    resultSection.style.display = 'none';
+    errorText.style.display = 'none';
+  });
+
+  analyzeButton.addEventListener('click', async () => {
+    if (!currentFile) return;
+
+    analyzeButton.disabled = true;
+    analyzeButton.textContent = 'Analyzing…';
+    errorText.style.display = 'none';
+    resultSection.style.display = 'none';
+
+    const formData = new FormData();
+    formData.append('image', currentFile);
+
+    try {
+      const response = await fetch('/api/predict', { method: 'POST', body: formData });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Something went wrong');
+
+      const isRipe = data.label === 'ripe';
+      const pct = Math.round(data.confidence * 100);
+      const f = data.features;
+
+      verdictLabel.textContent = isRipe ? 'Ripe' : 'Not ripe yet';
+      verdictLabel.className = 'verdict-label ' + data.label;
+      verdictConfidence.textContent = pct + '%';
+      meterFill.style.width = pct + '%';
+      meterFill.className = 'meter-fill ' + (isRipe ? '' : 'unripe');
+
+      colorSwatch.style.background = `hsl(${f.hue_degrees}, ${f.saturation_pct}%, ${Math.min(85, Math.max(25, f.value_pct))}%)`;
+      statColor.textContent = `H ${f.hue_degrees}° · S ${f.saturation_pct}% · V ${f.value_pct}%`;
+      statTexture.textContent = `Contrast ${f.texture_contrast} · Homog. ${f.texture_homogeneity}`;
+      statShape.textContent = `Circularity ${f.circularity} · Aspect ${f.aspect_ratio}`;
+
+      resultSection.style.display = 'block';
+    } catch (err) {
+      errorText.textContent = 'Error: ' + err.message;
+      errorText.style.display = 'block';
+    } finally {
+      analyzeButton.disabled = false;
+      analyzeButton.textContent = 'Analyze';
+    }
+  });
+</script>
+</body>
+</html>

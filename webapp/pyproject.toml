@@ -1,0 +1,15 @@
+[project]
+name = "strawberry-ripeness-webapp"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+    "flask",
+    "opencv-python-headless",
+    "scikit-image",
+    "scikit-learn",
+    "numpy",
+    "joblib",
+]
+
+[tool.vercel]
+entrypoint = "api.predict:app"
