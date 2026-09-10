@@ -25,7 +25,7 @@ X_train_normalized = scaler.fit_transform(X_train)
 X_test_normalized = scaler.transform(X_test)  # Normalize test data using the same scaler
 
 # Step 5: Train the SVM model
-svm_model = SVC(kernel='rbf', C=1.0, gamma='scale')  # RBF Kernel for non-linearity
+svm_model = SVC(kernel='rbf', C=1.0, gamma='scale', probability=True)  # RBF Kernel for non-linearity
 svm_model.fit(X_train_normalized, y_train)
 
 # Step 6: Save the model and scaler for future use
