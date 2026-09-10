@@ -9,6 +9,7 @@ dependencies = [
     "scikit-learn",
     "numpy",
     "joblib",
+    "onnxruntime",
 ]
 
 [tool.vercel]
